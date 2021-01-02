@@ -4,6 +4,7 @@
 # szukseges python csomagok importalasa
 from imutils.perspective import four_point_transform
 from imutils import contours
+from alakzat import Shape
 import numpy as np
 import argparse
 import imutils
@@ -17,11 +18,13 @@ ap.add_argument("-i", "--image", required=True,
     help="path to the input image")
 args = vars(ap.parse_args())
 
-#valtozok megadasa
-#bool circle = false #az alakzat kor-e
-#bool square = false #az alakzat negyzet-e
-var answers = 0 #jelolt valaszok darabszama
-var question = 1
+#Valtozok inicializalasa
+#kerdesek szama
+question = 1
+#jelolt valaszok darabszama
+answers = 0
+#a kerdoiv helyesen van-e kitoltve
+helyes = True
 
 #kep betoltese
 #szurkearnyalatos konvertalas
@@ -55,26 +58,42 @@ if len(cnts) > 0:
             docCnt = approx
             break
 
-#alkalmazzunk four point perspective transzformaciot a felulnezeti kepert
-#az erdetei kepen
-paper = four_point_transform(image, docCnt.reshape(4, 2))
-#a szurkearnyalatos kepen
-warped = four_point_transform(gray, docCnt.reshape(4, 2))
+#szukseg van-e four point perspective transzformaciora
+kepe = input("Ha a kerdoiv valamilyen eszkozzel lett lefotozva, nyomja meg az 1-es billentyut, ha szkennelve van, nyomja meg a 0-as billentyut: ")
+
+#ha lefotozott papir a kep
+if kepe == '1':
+    #alkalmazzunk four point perspective transzformaciot a felulnezeti kepert
+    #az erdetei kepen
+    paper = four_point_transform(image, docCnt.reshape(4, 2))
+    #a szurkearnyalatos kepen
+    warped = four_point_transform(gray, docCnt.reshape(4, 2))
+    
+    #Otsu metodussal alakitsuk at a kepet binaris keppe
+    #elkulonul a hatter es a kerdesek, valaszok
+    thresh = cv2.threshold(warped, 0, 255,
+        cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+    
+elif kepe== '0':
+    #Otsu metodussal alakitsuk at a kepet binaris keppe
+    #elkulonul a hatter es a kerdesek, valaszok
+    thresh = cv2.threshold(gray, 0, 255,
+    cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+    
+else:
+    print ('Hibas gomb')
 
 #Masodik resz - kerdesek es valaszok azonositasa
-#egyenlore csak kort kepes felismerni, a negyzetek felismerese hianyzik
-
-#Otsu metodussal alakitsuk at a kepet binaris keppe
-#elkulonul a hatter es a kerdesek, valaszok
-thresh = cv2.threshold(warped, 0, 255,
-    cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
 
 #konturok megkeresese a binaris kepen
 #valtozo inicializalasa a kerdesek konturjanak
 cnts = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
-    cv2.CHAIN_APPROX_SIMPLE)
+cv2.CHAIN_APPROX_SIMPLE)
 cnts = imutils.grab_contours(cnts)
 questionCnts = []
+
+#valtozo inicializalasa az alakzat azonositasahoz
+s = Shape()
 
 #vegigmegyunk a konturokon
 for c in cnts:
@@ -94,18 +113,33 @@ questionCnts = contours.sort_contours(questionCnts,
     method="top-to-bottom")[0]
 
 #valaszlehetosegek szamanak inicializalasa
-#possibleAnswers = 4
+possibleAnswers = input('Egy kerdeshez tartozo valaszok szama: ')
+answersCount = int(possibleAnswers)
 
-# minden kerdesnel 4 valaszlehetoseg van megadva
-#ezert negyesevel megyunk vegig a tombon
-for (q, i) in enumerate(np.arange(0, len(questionCnts), 4)):
+#vegigmegyunk a tombon, akkora leptekkel amekkorat a felhasznalo megadott
+for (q, i) in enumerate(np.arange(0, len(questionCnts), answersCount)):
     #kerdesek rendezese balrol jobbra
-    cnts = contours.sort_contours(questionCnts[i:i + 4])[0]
-    #a jelolt valasz inicializalasahoz valtozo
-    bubbled = None
+    cnts = contours.sort_contours(questionCnts[i:i + answersCount])[0]
+    
+    #logikai valtozo inicializalasa a valaszokhoz tartozo alakzat megallapitasahoz
+    negyzet = False
+    #valtozo inicializalasa ahhoz, hogy tudjuk, a kerdeshez tartozo elso alakzatot vizsgaljuk-e
+    hanyadik_valasz = 1
 
     #vegigmegyunk a konturokon
     for (j, c) in enumerate(cnts):
+        
+        #megnezzuk, hogy az alakzat negyzet-e vagy sem
+        #eleg csak minden kerdesnel az elso alakzatot megvizsgalni
+        while hanyadik_valasz == 1:
+            
+            alakzat = s.detect(c)
+            #print (alakzat)
+            if alakzat == "negyzet":
+                negyzet = True
+            
+            hanyadik_valasz += 1
+            
         #keszitsunk maszkot, ami az eppen aktualis valaszlehetoseget mutatja
         mask = np.zeros(thresh.shape, dtype="uint8")
         cv2.drawContours(mask, [c], -1, 255, -1)
@@ -114,24 +148,30 @@ for (q, i) in enumerate(np.arange(0, len(questionCnts), 4)):
         #szamoljuk ossze a nem-nulla pixeleket a teruleten
         mask = cv2.bitwise_and(thresh, thresh, mask=mask)
         total = cv2.countNonZero(mask)
-
-        #ha az aktualis ertek nagyobb, mint az eddig meghatarozott legnagyobb
-        #akkor legyen ez az uj maximalis ertek
-        #a jelolt valaszok szamat noveljuk eggyel
         
-        #esetleges modositas: ha egy bizonyos ertekkel kisebb vagy nagyobb, mint a maximalis,
-        #akkor is noveljuk a jelolt valaszok szamat
-        
-        if bubbled is None or total > bubbled[0]:
-            bubbled = (total, j)
+        #adjunk meg egy erteket ami felett valoszinuleg jelolve van a valaszlehetoseg
+        #print (total)
+        if total > 300:
             answers += 1
+
     #kor eseteben a valaszlehetosegek szama nem lehet egynel tobb
-    #irjuk ki, hogy ervenytelen valaszadas
-    if answers > 1:
-        printf ('A %d. kerdesre hibas valasz erkezett' %question)
-        answers = 0
+    #negyzet eseteben tobb valasz is jelolheto
+    if negyzet == False:
+        if answers > 1 or answers == 0:
+            print ('A %d. kerdes hibasan lett kitoltve' %question)
+            helyes = False
+    else:
+        if answers == 0:
+            print ('A %d. kerdes hibasan lett kitoltve' %question)
+            helyes = False
     
     #a kerdes szamat noveljuk 1-gyel
     question += 1
+    #valaszok szama 0 legyen
+    answers = 0
+
+#ha a valtozo erteke igaz, akkor a kitoltesben nem volt hiba
+if helyes == True:
+    print ('A kerdoiv helyesen lett kitoltve!')
 
 cv2.waitKey(0)
