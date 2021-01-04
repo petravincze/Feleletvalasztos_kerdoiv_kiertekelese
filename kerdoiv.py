@@ -112,14 +112,32 @@ for c in cnts:
 questionCnts = contours.sort_contours(questionCnts,
     method="top-to-bottom")[0]
 
+
 #valaszlehetosegek szamanak inicializalasa
 possibleAnswers = input('Egy kerdeshez tartozo valaszok szama: ')
 answersCount = int(possibleAnswers)
 
+#ha nem ugyanannyi valasz tartozik egy kerdeshez
+
+#answersCount = [] 
+#kerdesek szama
+#n = int(input("Hany kerdes van a kerdoivben : ")) 
+#valaszok szamanak eltarolasa
+#for i in range(0, n): 
+    #a = int(input('Adja meg az %d. kerdeshez tartozo valaszok szamat! ' %question)) 
+  
+    #ertek hozzadasa a listahoz
+    #answersCount.append(a)
+    
+    #question += 1
+
+#n = 0
+#question = 1
+
 #vegigmegyunk a tombon, akkora leptekkel amekkorat a felhasznalo megadott
-for (q, i) in enumerate(np.arange(0, len(questionCnts), answersCount)):
+for (q, i) in enumerate(np.arange(0, len(questionCnts), answersCount)): #ha nem ugyanannyi válasz tartozik minden kérdéshez: answersCount[n]
     #kerdesek rendezese balrol jobbra
-    cnts = contours.sort_contours(questionCnts[i:i + answersCount])[0]
+    cnts = contours.sort_contours(questionCnts[i:i + answersCount])[0]  #ha nem ugyanannyi válasz tartozik minden kérdéshez: answersCount[n]
     
     #logikai valtozo inicializalasa a valaszokhoz tartozo alakzat megallapitasahoz
     negyzet = False
@@ -151,7 +169,7 @@ for (q, i) in enumerate(np.arange(0, len(questionCnts), answersCount)):
         
         #adjunk meg egy erteket ami felett valoszinuleg jelolve van a valaszlehetoseg
         #print (total)
-        if total > 300:
+        if total >= 290:
             answers += 1
 
     #kor eseteben a valaszlehetosegek szama nem lehet egynel tobb
@@ -161,7 +179,7 @@ for (q, i) in enumerate(np.arange(0, len(questionCnts), answersCount)):
             print ('A %d. kerdes hibasan lett kitoltve' %question)
             helyes = False
     else:
-        if answers == 0:
+        if answers <= 1:
             print ('A %d. kerdes hibasan lett kitoltve' %question)
             helyes = False
     
@@ -169,6 +187,8 @@ for (q, i) in enumerate(np.arange(0, len(questionCnts), answersCount)):
     question += 1
     #valaszok szama 0 legyen
     answers = 0
+    #n erteket noveljuk
+    #n += 1
 
 #ha a valtozo erteke igaz, akkor a kitoltesben nem volt hiba
 if helyes == True:
